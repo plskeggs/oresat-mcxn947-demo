@@ -1,0 +1,5 @@
+west:
+  command: /home/blen-ermias/zephyrproject/.venv/bin/west build -b mcxn947_protocard
+    -- -DBOARD_ROOT=boards/nxp
+  topdir: /home/blen-ermias/zephyrproject
+  version: 1.4.0
