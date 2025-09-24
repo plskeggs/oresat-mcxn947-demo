@@ -11,6 +11,7 @@
 #include <zephyr/rtio/rtio.h>
 #include <zephyr/dsp/print_format.h>
 #include <zephyr/drivers/dac.h>
+#include <zephyr/drivers/adc.h>
 #include <zephyr/logging/log.h>
 
 LOG_MODULE_REGISTER(app_template, LOG_LEVEL_DBG);
@@ -20,6 +21,7 @@ LOG_MODULE_REGISTER(app_template, LOG_LEVEL_DBG);
 
 /* scheduling priority used by each thread */
 #define PRIORITY 7
+#define PRIORITY_DAC 6
 
 /* 1000 msec = 1 sec */
 #define LED_SLEEP_TIME_MS   1000
@@ -155,7 +157,7 @@ static int handle_bme280(void)
 #define DAC_RESOLUTION 0
 #endif
 
-int handle_dac(void)
+static int handle_dac(void)
 {
 	int ret;
 	const struct device *const dac_dev = DEVICE_DT_GET(DAC_NODE);
@@ -192,7 +194,7 @@ int handle_dac(void)
 	const int sleep_time = (4096 / dac_values > 0 ? 4096 / dac_values : 1) * 100;
 
 	printk("DAC: Generating sawtooth signal at DAC channel %d.\n", DAC_CHANNEL_ID);
-	printk("DAC: Number of DAC samples per cycle: %d, sleep time per sample (ms): %d\n",
+	printk("DAC: Number of DAC samples per cycle: %d, sleep time per sample (us): %d\n",
 		   dac_values, sleep_time);
 	int cycle = 0;
 
@@ -210,6 +212,112 @@ int handle_dac(void)
 	return 0;
 }
 
+
+/* ADC node from the devicetree. */
+#define ADC_NODE DT_ALIAS(adc0)
+
+/* Auxiliary macro to obtain channel vref, if available. */
+#define CHANNEL_VREF(node_id) DT_PROP_OR(node_id, zephyr_vref_mv, 0)
+
+/* Data of ADC device specified in devicetree. */
+static const struct device *adc = DEVICE_DT_GET(ADC_NODE);
+
+/* Data array of ADC channels for the specified ADC. */
+static const struct adc_channel_cfg channel_cfgs[] = {
+	DT_FOREACH_CHILD_SEP(ADC_NODE, ADC_CHANNEL_CFG_DT, (,))};
+
+/* Data array of ADC channel voltage references. */
+static uint32_t vrefs_mv[] = {DT_FOREACH_CHILD_SEP(ADC_NODE, CHANNEL_VREF, (,))};
+
+/* Get the number of channels defined on the DTS. */
+#define CHANNEL_COUNT ARRAY_SIZE(channel_cfgs)
+
+static int handle_adc(void)
+{
+	int err;
+	uint32_t count = 0;
+#ifdef CONFIG_SEQUENCE_32BITS_REGISTERS
+	uint32_t channel_reading[CONFIG_SEQUENCE_SAMPLES][CHANNEL_COUNT];
+#else
+	uint16_t channel_reading[CONFIG_SEQUENCE_SAMPLES][CHANNEL_COUNT];
+#endif
+
+	/* Options for the sequence sampling. */
+	const struct adc_sequence_options options = {
+		.extra_samplings = CONFIG_SEQUENCE_SAMPLES - 1,
+		.interval_us = 0,
+	};
+
+	/* Configure the sampling sequence to be made. */
+	struct adc_sequence sequence = {
+		.buffer = channel_reading,
+		/* buffer size in bytes, not number of samples */
+		.buffer_size = sizeof(channel_reading),
+		.resolution = CONFIG_SEQUENCE_RESOLUTION,
+		.options = &options,
+	};
+
+	if (!device_is_ready(adc)) {
+		printk("ADC controller device %s not ready\n", adc->name);
+		return 0;
+	}
+
+	printk("ADC: channels: %d, sequence samples: %d, resolution: %d\n",
+		   CHANNEL_COUNT, CONFIG_SEQUENCE_SAMPLES, CONFIG_SEQUENCE_RESOLUTION);
+
+	/* Configure channels individually prior to sampling. */
+	for (size_t i = 0U; i < CHANNEL_COUNT; i++) {
+		sequence.channels |= BIT(channel_cfgs[i].channel_id);
+		err = adc_channel_setup(adc, &channel_cfgs[i]);
+		if (err < 0) {
+			printk("Could not setup channel #%d (%d)\n", i, err);
+			return 0;
+		}
+		if ((vrefs_mv[i] == 0) && (channel_cfgs[i].reference == ADC_REF_INTERNAL)) {
+			vrefs_mv[i] = adc_ref_internal(adc);
+		}
+	}
+
+	while (1) {
+		//printk("ADC sequence reading [%u]:\n", count++);
+		k_usleep(100);
+
+		err = adc_read(adc, &sequence);
+		if (err < 0) {
+			printk("Could not read (%d)\n", err);
+			continue;
+		}
+
+		for (size_t channel_index = 0U; channel_index < CHANNEL_COUNT; channel_index++) {
+			int32_t val_mv;
+
+			//printk("- %s, channel %" PRId32 ", %" PRId32 " sequence samples:\n",
+			//       adc->name, channel_cfgs[channel_index].channel_id,
+			//       CONFIG_SEQUENCE_SAMPLES);
+			for (size_t sample_index = 0U; sample_index < 1 /*CONFIG_SEQUENCE_SAMPLES*/;
+			     sample_index++) {
+
+				val_mv = channel_reading[sample_index][channel_index];
+
+				//printk("- - %" PRId32, val_mv);
+				err = adc_raw_to_millivolts(vrefs_mv[channel_index],
+							    channel_cfgs[channel_index].gain,
+							    CONFIG_SEQUENCE_RESOLUTION, &val_mv);
+
+				/* conversion to mV may not be supported, skip if not */
+				if ((err < 0) || vrefs_mv[channel_index] == 0) {
+					printk(" (value in mV not available)\n");
+				} else {
+					printk("% 4" PRId32 ",", val_mv);
+				}
+			}
+			//printk("\n");
+		}
+	}
+
+	return 0;
+}
+
 int main(void)
 {
 	printk("\nOresat MCXN947 Breakout Board Demo\n");
@@ -218,5 +326,6 @@ int main(void)
 
 K_THREAD_DEFINE(blink_id, STACKSIZE, handle_blink, NULL, NULL, NULL, PRIORITY, 0, 0);
 K_THREAD_DEFINE(bme280_id, STACKSIZE, handle_bme280, NULL, NULL, NULL, PRIORITY, 0, 0);
-K_THREAD_DEFINE(dac_id, STACKSIZE, handle_dac, NULL, NULL, NULL, PRIORITY, 0, 0);
+K_THREAD_DEFINE(dac_id, STACKSIZE, handle_dac, NULL, NULL, NULL, PRIORITY_DAC, 0, 0);
+K_THREAD_DEFINE(adc_id, STACKSIZE, handle_adc, NULL, NULL, NULL, PRIORITY, 0, 0);
 
