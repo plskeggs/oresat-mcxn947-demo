@@ -235,7 +235,6 @@ static uint32_t vrefs_mv[] = {DT_FOREACH_CHILD_SEP(ADC_NODE, CHANNEL_VREF, (,))}
 static int handle_adc(void)
 {
 	int err;
-	uint32_t count = 0;
 #ifdef CONFIG_SEQUENCE_32BITS_REGISTERS
 	uint32_t channel_reading[CONFIG_SEQUENCE_SAMPLES][CHANNEL_COUNT];
 #else
@@ -276,11 +275,13 @@ static int handle_adc(void)
 		if ((vrefs_mv[i] == 0) && (channel_cfgs[i].reference == ADC_REF_INTERNAL)) {
 			vrefs_mv[i] = adc_ref_internal(adc);
 		}
+		printk("Channel: %u, vref_mv: %u, gain: %u, acq time: %u, diff: %u, inp_pos: %u, inp_neg: %u\n",
+			   channel_cfgs[i].channel_id, vrefs_mv[i], channel_cfgs[i].gain, channel_cfgs[i].acquisition_time,
+			   channel_cfgs[i].differential, channel_cfgs[i].input_positive, channel_cfgs[i].input_negative);
 	}
 
 	while (1) {
-		//printk("ADC sequence reading [%u]:\n", count++);
-		k_usleep(100);
+		k_msleep(5);
 
 		err = adc_read(adc, &sequence);
 		if (err < 0) {
@@ -288,30 +289,28 @@ static int handle_adc(void)
 			continue;
 		}
 
-		for (size_t channel_index = 0U; channel_index < CHANNEL_COUNT; channel_index++) {
+		for (size_t channel_index = 0U; channel_index < 1 /*CHANNEL_COUNT*/; channel_index++) {
+			int32_t raw;
 			int32_t val_mv;
 
-			//printk("- %s, channel %" PRId32 ", %" PRId32 " sequence samples:\n",
-			//       adc->name, channel_cfgs[channel_index].channel_id,
-			//       CONFIG_SEQUENCE_SAMPLES);
-			for (size_t sample_index = 0U; sample_index < 1 /*CONFIG_SEQUENCE_SAMPLES*/;
+			for (size_t sample_index = 0U; sample_index < CONFIG_SEQUENCE_SAMPLES;
 			     sample_index++) {
 
-				val_mv = channel_reading[sample_index][channel_index];
+				raw = channel_reading[sample_index][channel_index];
+				val_mv = raw;
 
-				//printk("- - %" PRId32, val_mv);
 				err = adc_raw_to_millivolts(vrefs_mv[channel_index],
 							    channel_cfgs[channel_index].gain,
 							    CONFIG_SEQUENCE_RESOLUTION, &val_mv);
 
 				/* conversion to mV may not be supported, skip if not */
 				if ((err < 0) || vrefs_mv[channel_index] == 0) {
-					printk(" (value in mV not available)\n");
+					printk("% 4" PRId32 ",", raw);
 				} else {
 					printk("% 4" PRId32 ",", val_mv);
 				}
 			}
-			//printk("\n");
+			printk("\n");
 		}
 	}
 
