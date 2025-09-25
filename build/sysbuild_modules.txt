@@ -1,1 +1,0 @@
-"mcuboot":"/home/blen-ermias/zephyrproject/bootloader/mcuboot":"/home/blen-ermias/zephyrproject/bootloader/mcuboot/boot/zephyr/sysbuild"
