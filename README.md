@@ -69,11 +69,12 @@ later.
 
 The source code in `blink.c` shows how to:
 
-1. Get a pin specification from the `devicetree` as a `gpio_dt_spec`
+1. Get a pin specification from the [devicetree](https://docs.zephyrproject.org/latest/build/dts/index.html#dt-guide) as a `gpio_dt_spec`
 2. Configure the GPIO pin as an output
 3. Toggle the pin forever
 
-See the Zephyr `pwm-blinky` sample for a similar sample that uses the `PWM API` instead.
+See the Zephyr [pwm-blinky](https://docs.zephyrproject.org/latest/samples/basic/blinky_pwm/README.html#pwm-blinky)
+sample for a similar sample that uses the `PWM API` instead.
 
 ### The sample periodically samples an I2C sensor
 
@@ -128,9 +129,12 @@ Build and flash as follows:
 
 
 ```
-$ west build -p -b mcxn947_protocard/mcxn947/cpu0 -- -DBOARD_ROOT=<path to board folder>
+$ west build -p -b mcxn947_protocard/mcxn947/cpu0
 $ west flash -r jlink
 ```
+
+Note: the CMakeLists.txt file sets the `BOARD_ROOT` so that it does not
+need to be specified on the command line.
 
 After flashing, the LED starts to blink and messages with the current LED state,
 I2C sensor data, DAC cycles, and ADC samples are printed to the console.
@@ -402,21 +406,23 @@ pinmux_lpadc0: pinmux_lpadc0 {
 
 - Examine `build/zephyr/zephyr.dts` to see the final fully combined device tree
 
-- Use the NXP MCUXpresso Config Tool program to explore what each desired 
-hardware module can be multiplexed to which SoC pins, and to generate example
-device tree pin control file contents
+- Use the [NXP MCUXpresso Config Tool](https://www.nxp.com/design/design-center/software/development-software/mcuxpresso-software-and-tools-/mcuxpresso-config-tools-pins-clocks-and-peripherals:MCUXpresso-Config-Tools)
+program to explore what each desired hardware module can be multiplexed to which
+SoC pins, and to generate example device tree pin control file contents
 
-- Use the Nordic nRF Connect extension's for Microsoft Visual Studio Code; this
-extension provides a Kconfig tool and a Device Tree tool which can parse the
+- Use the [Nordic nRF Connect extension for Microsoft Visual Studio Code](https://www.nordicsemi.com/Products/Development-tools/nRF-Connect-for-VS-Code);
+this extension provides a Kconfig tool and a Device Tree tool which can parse the
 build output from your project and display helpful errors about potential errors,
 view specific settings for each device tree node, and view the SoC pinout
 
-- See `gpio-leds` for more information on defining GPIO-based LEDs in devicetree.
+- See (gpio-leds)[https://docs.zephyrproject.org/latest/build/dts/api/bindings/led/gpio-leds.html#std-dtcompatible-gpio-leds]
+for more information on defining GPIO-based LEDs in devicetree.
 
 - If you're not sure what to do, check the devicetrees for supported boards which
-  use the same SoC as your target. See `get-devicetree-outputs` for details.
+use the same SoC as your target. See [get-devicetree-outputs](https://docs.zephyrproject.org/latest/build/dts/howtos.html#get-devicetree-outputs) for details.
 
-- See `include/zephyr/dt-bindings/gpio/gpio.h` for the flags you can use in devicetree.
+- See (include/zephyr/dt-bindings/gpio/gpio.h)[https://github.com/zephyrproject-rtos/zephyr/blob/main/include/zephyr/dt-bindings/gpio/gpio.h]
+for the flags you can use in devicetree.
 
 - If the LED is built in to your board hardware, the alias should be defined in
-  your `BOARD.dts` file. Otherwise, you can define one in a `devicetree overlay`.
+  your `BOARD.dts` file. Otherwise, you can define one in a [devicetree overlay](https://docs.zephyrproject.org/latest/build/dts/howtos.html#set-devicetree-overlays).
