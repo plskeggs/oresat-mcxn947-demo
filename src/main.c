@@ -1,37 +1,28 @@
-
-
+/**
+ * main.c
+ *
+ * Simple main that only logs a bootup message. The remainder
+ * of the demos are implemented as independent threads
+ * in blink.c, dac.c, i2c_sensor.c, and adc.c.
+ *
+ * These can be disabled at compile time by adding:
+ *   CONFIG_BLINK_DEMO=n
+ * for example, to prj.conf. See Kconfig for the options or run
+ * west build -t menuconfig for an interacive configuration
+ * editor.
+ */
 #include <stdio.h>
 #include <zephyr/kernel.h>
-#include <zephyr/drivers/gpio.h>
 #include <zephyr/sys/printk.h> 
+#include <zephyr/sys/__assert.h>
 
-/* 1000 msec = 1 sec */
-#define SLEEP_TIME_MS   1000
+#include <zephyr/logging/log.h>
 
-/* The devicetree node identifier for the "led0" alias. */
-#define LED0_NODE DT_ALIAS(led0)
-
-
-static const struct gpio_dt_spec led = GPIO_DT_SPEC_GET(LED0_NODE, gpios);
+LOG_MODULE_REGISTER(oresat_mcxn947_demo, LOG_LEVEL_DBG);
 
 int main(void)
 {
-	int ret;
-
-
-	if (!device_is_ready(led.port)) {
-		return 0;
-	}
-
-	ret = gpio_pin_configure_dt(&led, GPIO_OUTPUT_ACTIVE);
-	if (ret < 0) {
-		return 0;
-	}
-
-	while (1) {
-		gpio_pin_toggle_dt(&led);
-		printk("The light is blinking!\n");
-		k_msleep(SLEEP_TIME_MS);
-	}
+	printk("\n");
+	LOG_INF("Oresat MCXN947 Breakout Board Demo\n");
 	return 0;
 }
