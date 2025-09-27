@@ -18,9 +18,56 @@ It also demonstrates:
 
 ## Overview
 
-The Blinky sample blinks an LED forever using the `GPI API`.
+The sample's `main.c` does very little. In fact, all it does is log a message.
+Everything else is done in any of the enabled threads.
 
-The source code shows how to:
+### Controlling which demo threads are enabled in the build
+By default, all 4 threads are enabled, because the source files for them,
+`blink.c`, `i2c_sensor.c`, `dac.c`, and `adc.c`, are included in the build.'
+This is done using the file `Kconfig` and the file `CMakeLists.txt`.
+
+First, the `Kconfig` file defines symbols for each demo. For example:
+
+```
+config BLINK_DEMO
+    bool "Blink an LED"
+    default y
+    help
+      Enable the thread which blinks an LED.
+```
+
+Note the `default y`. If this line is missing, `default n` is implied.
+
+This affects what is included in the build through conditional compilation
+in CMakeLists.txt:
+
+```
+# Compile in various demos depending on Kconfig values.
+target_sources_ifdef(CONFIG_BLINK_DEMO      app PRIVATE src/blink.c)
+target_sources_ifdef(CONFIG_I2C_SENSOR_DEMO app PRIVATE src/i2c_sensor.c)
+target_sources_ifdef(CONFIG_DAC_DEMO        app PRIVATE src/dac.c)
+target_sources_ifdef(CONFIG_ADC_DEMO        app PRIVATE src/adc.c)
+```
+Note 1: in `Kconfig` files, the prefix `CONFIG_` is assumed, but not elsewhere.
+Note 2: `CONFIG_` symbols are automatically defined in your build folder in
+`build/zephyr/include/generated/zephyr/`.
+
+In order to disable a specific demo, the recommended way is via the `prj.conf`
+file. This file allows you to set Kconfig symbols to specific values. So to
+disable the blink demo, add this line:
+
+```
+CONFIG_BLINK_DEMO=n
+```
+
+It may be tempting to modify the Kconfig instead to disable demos, or to make
+other changes. This should only be done when deciding to make a change that
+is the default behavior, rather than a temporary change that can be freely adjusted
+later.
+
+### The sample blinks an LED forever using the `GPI API`.
+
+The source code in `blink.c` shows how to:
 
 1. Get a pin specification from the `devicetree` as a `gpio_dt_spec`
 2. Configure the GPIO pin as an output
@@ -28,32 +75,66 @@ The source code shows how to:
 
 See the Zephyr `pwm-blinky` sample for a similar sample that uses the `PWM API` instead.
 
-## Requirements
+### The sample periodically samples an I2C sensor
 
-Your board must:
+The source code in `i2c_sensor.c` shows how to:
 
-1. Have an LED connected via a GPIO pin (these are called "User LEDs" on many of Zephyr's `boards`).
-2. Have the LED configured using the `led0` devicetree alias.
+1. Connect to a sensor
+2. Read a block of samples from it
+3. Use a sensor decoder API to decode specific sensor channels
+
+### The sample periodically generates a waveform on a DAC
+
+1. Connect to a DAC
+2. Set up the DAC
+3. Write waveform values to the DAC
+
+Note: the time between samples generated is not particularly jitter-free.
+When timing is critical because the frequency of the generated waveform
+is high, other methods like:
+
+ - using a hardware timer to generate interrupts and then update the DAC output
+ from the interrupt handler
+- generate buffers in RAM of sample data and use DMA to the DAC to automatically
+ transfer the samples at a rate set by a hardware timer
+
+### The sample periodically samples two ADC channels
+
+1. Connect to the ADC and two channels within it
+2. Setup each of the channels
+3. Determine the reference voltage for each channel
+4. Read a sequence of samples
+5. Convert to millivolts based on the reference voltage
 
 ## Hardware connections
 
-- LED to `P1_13`
+- LED and series current limit resistor between `P1_13` and +3.3v
 - I2C SCL to `P0_17`
 - I2C SDA to `P0_16`
-- DAC output from `P4_2`
-- ADC0 channel 1A to `P4_15`
-- ADC0 channel 2A to `P4_23`
+- Connect two 4.7K pull up resistors to I2C SCL and I2C SDA; up = +3.3v
+- Connect I2C SCL to BME280 board SCK
+- Connect I2C SDA to BME280 board SDI
+- Connect the BME280 board Vin to Vbus on pin 1 of the CAN connector J3
+- Connect the BME280 board GND to breakout board GND
+- DAC output is from `P4_2`
+- ADC0 channel 1A inputs from `P4_15`
+- ADC0 channel 2A inputs from `P4_23`
 - Jumper the DAC to ADC0 channel 1A
 - Jumper GND or +3.3v to ADC0 channel 2A
-- Connect two 4.7K pull up resistors to I2C SCL and I2C SDA; up = +3.3v
 
 ## Building and Running
 
 Build and flash as follows:
 
-After flashing, the LED starts to blink and messages with the current LED state
-are printed on the console. If a runtime error occurs, the sample exits without
-printing to the console.
+
+```
+$ west build -p -b mcxn947_protocard/mcxn947/cpu0 -- -DBOARD_ROOT=<path to board folder>
+$ west flash -r jlink
+```
+
+After flashing, the LED starts to blink and messages with the current LED state,
+I2C sensor data, DAC cycles, and ADC samples are printed to the console.
+If a runtime error occurs, `<err>` logs are generated.
 
 ### Example output with all demos enabled
 
@@ -159,22 +240,25 @@ On GCC-based toolchains, the error looks like this:
    `'__device_dts_ord_DT_N_ALIAS_led_P_gpios_IDX_0_PH_ORD' undeclared here (not in a function)`
 
 
-## Adding board support
+## Board support
 
-To add support for your board, add something like this to your devicetree:
+### LED device tree settings
+
+To add support for your board, add something like this to your devicetree's
+`.dtsi` file:
 
 ```
    / {
-   	aliases {
-   		led0 = &myled0;
-   	};
+   	   aliases {
+   	      led0 = &myled0;
+   	   };
 
-   	leds {
-   		compatible = "gpio-leds";
-   		myled0: led_0 {
+   	   leds {
+   	     compatible = "gpio-leds";
+   	     myled0: led_0 {
    			gpios = <&gpio0 13 GPIO_ACTIVE_LOW>;
-                };
-   	};
+         };
+   	   };
    };
 ```
 
@@ -182,7 +266,150 @@ The above sets your board's `led0` alias to use pin 13 on GPIO controller
 `gpio0`. The pin flags `GPIO_ACTIVE_HIGH` mean the LED is on when
 the pin is set to its high state, and off when the pin is in its low state.
 
-Tips:
+### I2C bus and BME280 device tree settings
+
+Add this to your board's `.dtsi` file to enable I2C on flexcomm0 and within
+that bus, a bme280 slave device at I2C address 0x77:
+
+```
+&flexcomm0_lpi2c0 {
+	pinctrl-0 = <&pinmux_flexcomm0_lpi2c>;
+	pinctrl-names = "default";
+	clock-frequency = <I2C_BITRATE_STANDARD>;
+
+	bme280: bme280@77 {
+		compatible = "bosch,bme280";
+		reg = <0x77>;
+        status = "okay";
+	};
+};
+
+```
+
+And add this to the board's `*-pinctrl.dtsi` file to specify
+which pins to use for SDA and SCL:
+
+```
+&pinctrl {
+...
+	pinmux_flexcomm0_lpi2c: pinmux_flexcomm0_lpi2c {
+		group0 {
+			pinmux = <FC0_P0_PIO0_16>,
+    			     <FC0_P1_PIO0_17>;
+			slew-rate = "fast";
+			drive-strength = "low";
+			input-enable;
+			bias-pull-up;
+			drive-open-drain;
+		};
+	};
+
+```
+
+### DAC device tree settings
+
+Add this to your board's `.dtsi` file to enable DAC0:
+
+```
+/ {
+  zephyr,user {
+    dac = <&dac0>;
+    dac-channel-id = <0>;
+    dac-resolution = <12>;
+    status = "okay";
+};
+
+&dac0 {
+	status = "okay";
+};
+```
+
+And add this to the board's `*-pinctrl.dtsi` file to specify
+which pin to output DAC0 on:
+
+```
+&pinctrl {
+...
+  pinmux_dac0: pinmux_dac0 {
+    group0 {
+        pinmux = <DAC0_OUT_PIO4_2>;
+        drive-strength = "low";
+        slew-rate = "fast";
+    };
+  };
+```
+
+### ADC device tree settings
+
+Add this to your board's `.dtsi` file to enable ADC0 channels 1A and 2A:
+
+```
+...
+#include <zephyr/dt-bindings/adc/adc.h>
+#include <zephyr/dt-bindings/adc/mcux-lpadc.h>
+...
+
+  aliases{
+...
+    adc0 = &lpadc0;
+  }
+...
+&lpadc0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	lpadc0_0: channel@0 {
+		reg = <0>;
+		zephyr,gain = "ADC_GAIN_1";
+		zephyr,reference = "ADC_REF_EXTERNAL0";
+		zephyr,vref-mv = <3300>;
+		zephyr,acquisition-time = <ADC_ACQ_TIME(ADC_ACQ_TIME_MICROSECONDS,2)>;
+		zephyr,resolution = <12>;
+        zephyr,oversampling = <5>;
+		zephyr,input-positive = <MCUX_LPADC_CH1A>;
+        /delete-property/ zephyr,differential;
+	};
+	lpadc0_1: channel@1 {
+		reg = <1>;
+		zephyr,gain = "ADC_GAIN_1";
+		zephyr,reference = "ADC_REF_EXTERNAL0";
+		zephyr,vref-mv = <3300>;
+		zephyr,acquisition-time = <ADC_ACQ_TIME(ADC_ACQ_TIME_MICROSECONDS,2)>;
+		zephyr,resolution = <12>;
+        zephyr,oversampling = <5>;
+		zephyr,input-positive = <MCUX_LPADC_CH2A>;
+        /delete-property/ zephyr,differential;
+	};
+};
+```
+
+And add this to your board's `*-pinctrl.dtsi` file to specify which pins
+to use for these channels:
+ 
+```
+pinmux_lpadc0: pinmux_lpadc0 {
+    group0 {
+        pinmux = <ADC0_A1_PIO4_15>,
+                 <ADC0_A2_PIO4_23>;
+        slew-rate = "fast";
+        drive-strength = "low";
+    };
+};
+
+``` 
+
+## Tips
+
+- Examine `build/zephyr/zephyr.dts` to see the final fully combined device tree
+
+- Use the NXP MCUXpresso Config Tool program to explore what each desired 
+hardware module can be multiplexed to which SoC pins, and to generate example
+device tree pin control file contents
+
+- Use the Nordic nRF Connect extension's for Microsoft Visual Studio Code; this
+extension provides a Kconfig tool and a Device Tree tool which can parse the
+build output from your project and display helpful errors about potential errors,
+view specific settings for each device tree node, and view the SoC pinout
 
 - See `gpio-leds` for more information on defining GPIO-based LEDs in devicetree.
 
