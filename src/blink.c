@@ -16,7 +16,7 @@
 #include <zephyr/devicetree.h>
 #include <zephyr/logging/log.h>
 
-LOG_MODULE_REGISTER(app_template, LOG_LEVEL_DBG);
+LOG_MODULE_REGISTER(oresat_blink_demo, LOG_LEVEL_DBG);
 
 /* size of stack area used by each thread */
 #define STACKSIZE 1024

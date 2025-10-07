@@ -156,8 +156,8 @@ If a runtime error occurs, `<err>` logs are generated.
 [00:00:00.014,000] <inf> oresat_adc_demo: Channels: 2, sequence samples: 8, resolution: 12
 [00:00:00.014,000] <inf> oresat_adc_demo: Channel: 0, vref_mv: 3300, gain: 9, acq time: 16386, diff: 0, inp_pos: 1, inp_neg: 0
 [00:00:00.014,000] <inf> oresat_adc_demo: Channel: 1, vref_mv: 3300, gain: 9, acq time: 16386, diff: 0, inp_pos: 2, inp_neg: 0
-[00:00:00.014,000] <inf> app_template: Starting blink demo
-[00:00:00.014,000] <dbg> app_template: handle_blink: The light is blinking!
+[00:00:00.014,000] <inf> oresat_blink_demo: Starting blink demo
+[00:00:00.014,000] <dbg> oresat_blink_demo: handle_blink: The light is blinking!
 [00:00:00.014,000] <inf> oresat_i2c_sensor_demo: Starting I2C sensor demo
 [00:00:00.014,000] <inf> oresat_i2c_sensor_demo: Found device "bme280@77", getting sensor data
 temp: 25.509979; press: 101.703125; humidity: 45.500976
@@ -180,7 +180,7 @@ temp: 25.509979; press: 101.703125; humidity: 45.500976
 [00:00:00.834,000] <inf> oresat_dac_demo: Cycle 1
  349, 348, 344, 346, 344, 347, 348, 347,
    0,   0,   0,   0,   0,   0,   0,   0,
-[00:00:01.014,000] <dbg> app_template: handle_blink: The light is blinking!
+[00:00:01.014,000] <dbg> oresat_blink_demo: handle_blink: The light is blinking!
  754, 750, 754, 751, 755, 752, 754, 750,
    0,   0,   0,   0,   0,   0,   0,   0,
  1159, 1160, 1159, 1159, 1161, 1159, 1160, 1159,
@@ -202,7 +202,7 @@ temp: 25.509979; press: 101.703125; humidity: 45.500976
    0,   0,   0,   0,   0,   0,   0,   0,
  1094, 1094, 1096, 1094, 1095, 1094, 1092, 1094,
    0,   0,   0,   0,   0,   0,   0,   0,
-[00:00:02.015,000] <dbg> app_template: handle_blink: The light is blinking!
+[00:00:02.015,000] <dbg> oresat_blink_demo: handle_blink: The light is blinking!
  1503, 1498, 1502, 1506, 1503, 1505, 1505, 1503,
    0,   0,   0,   0,   0,   0,   0,   0,
  1911, 1911, 1913, 1911, 1911, 1915, 1911, 1910,
@@ -224,7 +224,7 @@ temp: 25.509979; press: 101.703125; humidity: 45.500976
    0,   0,   0,   0,   0,   0,   0,   0,
  1846, 1843, 1849, 1845, 1848, 1848, 1846, 1846,
    0,   0,   0,   0,   0,   0,   0,   0,
-[00:00:03.015,000] <dbg> app_template: handle_blink: The light is blinking!
+[00:00:03.015,000] <dbg> oresat_blink_demo: handle_blink: The light is blinking!
  2254, 2255, 2255, 2255, 2255, 2258, 2252, 2255,
    0,   0,   0,   0,   0,   0,   0,   0,
  2660, 2661, 2661, 2661, 2660, 2661, 2661, 2661,
